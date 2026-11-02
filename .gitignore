@@ -1,0 +1,6 @@
+# Build-Ausgabe für die claude.ai-Vorschau (wird von build.py erzeugt)
+preview.html
+# Arbeitsdateien
+theke-vorher-nachher.png
+__pycache__/
+.DS_Store

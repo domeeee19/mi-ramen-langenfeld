@@ -1,0 +1,480 @@
+<title>Mi Ramen Reservierungen</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: a service-desk tool. Sticky top bar, day navigator, four count tiles, then the day's bookings grouped by start time like a paper reservation book. */
+:root{
+  --bg:#F4F1EB; --surface:#FFFFFF; --ink:#2C2A23; --soft:#5F5B50; --line:#E2DDD2;
+  --red:#E3191F; --red-ink:#FFFFFF; --sheet:#1B1B1A;
+  --st-pending:#9A6200; --st-pending-bg:#FFF1CF;
+  --st-confirmed:#1F6B45; --st-confirmed-bg:#DDF3E6;
+  --st-seated:#2457A6; --st-seated-bg:#E1EBFA;
+  --st-noshow:#6B4A8C; --st-noshow-bg:#EEE5F7;
+  --st-cancelled:#8A847A; --st-cancelled-bg:#ECE9E3;
+  --font-display:"Dela Gothic One","Arial Black",system-ui,sans-serif;
+  --font-body:"Zen Kaku Gothic New","Hiragino Sans","Noto Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141412;--surface:#1E1D1A;--ink:#EFECE5;--soft:#ADA89D;--line:#36342F;--red:#FF4A50;--red-ink:#141412;
+  --st-pending:#F2C25B;--st-pending-bg:#3A2F12;--st-confirmed:#7AD3A3;--st-confirmed-bg:#173226;
+  --st-seated:#8DB4F2;--st-seated-bg:#1A2740;--st-noshow:#C7A6EA;--st-noshow-bg:#2C2238;--st-cancelled:#A39D92;--st-cancelled-bg:#2A2925;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141412;--surface:#1E1D1A;--ink:#EFECE5;--soft:#ADA89D;--line:#36342F;--red:#FF4A50;--red-ink:#141412;
+  --st-pending:#F2C25B;--st-pending-bg:#3A2F12;--st-confirmed:#7AD3A3;--st-confirmed-bg:#173226;
+  --st-seated:#8DB4F2;--st-seated-bg:#1A2740;--st-noshow:#C7A6EA;--st-noshow-bg:#2C2238;--st-cancelled:#A39D92;--st-cancelled-bg:#2A2925;color-scheme:dark}
+
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--sheet)}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.wrap{max-width:62rem;margin-inline:auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border-radius:999px;padding:.5rem 1rem;min-height:2.5rem;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-weight:700;font-size:.9rem;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:var(--ink)}
+.btn-primary{background:var(--red);border-color:var(--red);color:var(--red-ink)}
+.btn-primary:hover{border-color:var(--red);filter:brightness(1.05)}
+.btn-sm{min-height:2.1rem;padding:.3rem .75rem;font-size:.82rem}
+.btn-danger{color:var(--red)}
+.btn[disabled]{opacity:.55;cursor:progress}
+
+/* Top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--sheet);color:#F3F0EA}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:.75rem;min-height:3.5rem}
+.brand{display:flex;align-items:center;gap:.6rem;font-family:var(--font-display);font-size:1.05rem}
+.brand .sun{width:1.4rem;height:1.4rem;border-radius:50%;background:#E3191F;flex:none}
+.brand small{font-family:var(--font-body);font-size:.78rem;color:#B9B4AA;font-weight:500}
+.top-actions{display:flex;gap:.4rem;align-items:center}
+.top .btn{background:transparent;color:#F3F0EA;border-color:#4A4844}
+.top .btn:hover{border-color:#F3F0EA}
+.badge{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:.2rem .55rem;border-radius:4px;background:#FFF1B8;color:#3D3200;white-space:nowrap}
+.demo-bar{background:#FFF1B8;color:#3D3200;font-size:.85rem}
+.demo-bar .wrap{padding-block:.5rem}
+
+/* Login */
+.login{min-height:70vh;display:grid;place-items:center;padding-block:3rem}
+.login form{width:min(22rem,100%);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1.5rem;display:grid;gap:1rem}
+.login h1{font-family:var(--font-display);font-weight:400;font-size:1.4rem;margin:0}
+
+/* Toolbar */
+main{padding-block:1.25rem 4rem}
+.toolbar{display:flex;flex-wrap:wrap;gap:.75rem;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.daynav{display:flex;align-items:center;gap:.4rem}
+.daynav h2{font-size:1.15rem;margin:0 .35rem;min-width:0}
+.icon{width:2.4rem;height:2.4rem;padding:0;border-radius:50%}
+.views{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--surface)}
+.views button{border:0;background:none;border-radius:999px;padding:.35rem .8rem;cursor:pointer;font-weight:700;font-size:.85rem;color:var(--soft);min-height:2.1rem}
+.views button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;margin-bottom:1rem}
+@media (min-width:40rem){.tiles{grid-template-columns:repeat(4,1fr)}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.75rem .9rem}
+.tile b{display:block;font-size:1.6rem;font-variant-numeric:tabular-nums;line-height:1.1}
+.tile span{font-size:.8rem;color:var(--soft);font-weight:500}
+.tile.warn b{color:var(--st-pending)}
+.filters{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1rem}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:.3rem .75rem;cursor:pointer;font-size:.82rem;font-weight:700;color:var(--soft);min-height:2rem}
+.chip[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);background:var(--bg)}
+.search{flex:1 1 12rem;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:.45rem .9rem;min-height:2.3rem}
+
+/* List */
+.group{margin-bottom:1.25rem}
+.group-head{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;border-bottom:2px solid var(--ink);padding-bottom:.25rem;margin-bottom:.5rem}
+.group-head h3{margin:0;font-size:1rem;font-variant-numeric:tabular-nums}
+.group-head span{font-size:.82rem;color:var(--soft);font-variant-numeric:tabular-nums}
+.bk{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.8rem .9rem;display:grid;grid-template-columns:3.6rem 1fr;gap:.25rem .9rem;margin-bottom:.5rem}
+.bk.is-cancelled{opacity:.6}
+.bk .when{grid-row:span 3;text-align:center;align-self:start;border-right:1px solid var(--line);padding-right:.6rem}
+.bk .when b{display:block;font-size:1.1rem;font-variant-numeric:tabular-nums}
+.bk .when span{font-size:.78rem;color:var(--soft)}
+.bk .who{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .6rem;min-width:0}
+.bk .who strong{font-size:1.02rem}
+.bk .contact{font-size:.88rem;color:var(--soft);display:flex;flex-wrap:wrap;gap:.2rem .9rem;min-width:0;overflow-wrap:anywhere}
+.bk .contact a{color:var(--ink)}
+.bk .note{font-size:.88rem;background:var(--bg);border-radius:6px;padding:.35rem .6rem;overflow-wrap:anywhere}
+.bk .acts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem}
+.pill{font-size:.72rem;font-weight:700;letter-spacing:.04em;padding:.12rem .55rem;border-radius:999px;white-space:nowrap}
+.pill.pending{color:var(--st-pending);background:var(--st-pending-bg)}
+.pill.confirmed{color:var(--st-confirmed);background:var(--st-confirmed-bg)}
+.pill.seated{color:var(--st-seated);background:var(--st-seated-bg)}
+.pill.noshow{color:var(--st-noshow);background:var(--st-noshow-bg)}
+.pill.cancelled{color:var(--st-cancelled);background:var(--st-cancelled-bg)}
+.src{font-size:.72rem;color:var(--soft)}
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--soft);border:1px dashed var(--line);border-radius:12px}
+.confirm-row{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;font-size:.88rem;background:var(--st-cancelled-bg);border-radius:8px;padding:.5rem .7rem}
+
+/* Editor dialog */
+dialog{border:0;padding:0;border-radius:14px;width:min(34rem,calc(100% - 24px));max-height:calc(100% - 24px);background:var(--surface);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.dlg-head{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.2rem;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--surface)}
+.dlg-head h2{margin:0;font-size:1.15rem}
+.dlg-body{padding:1.1rem 1.2rem 1.3rem;display:grid;gap:.85rem}
+.field{display:grid;gap:.3rem}
+.field label{font-size:.85rem;font-weight:700}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:.55rem .7rem;min-height:2.6rem;width:100%}
+.field textarea{min-height:4rem;resize:vertical}
+.row{display:grid;gap:.85rem;grid-template-columns:1fr 1fr}
+.row3{display:grid;gap:.85rem;grid-template-columns:1.4fr 1fr 1fr}
+@media (max-width:30rem){.row3{grid-template-columns:1fr 1fr}.row3 .field:first-child{grid-column:1/-1}}
+.check{display:flex;gap:.5rem;align-items:flex-start;font-size:.88rem}
+.check input{width:1.1rem;height:1.1rem;margin-top:.15rem;accent-color:var(--red)}
+.dlg-foot{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end}
+.err{color:var(--red);font-size:.88rem;min-height:1.2em;margin:0}
+.hint{font-size:.82rem;color:var(--soft);margin:0}
+
+.toast{position:fixed;left:50%;bottom:calc(1rem + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--sheet);color:#F3F0EA;padding:.6rem 1rem;border-radius:999px;font-size:.9rem;z-index:20;max-width:calc(100% - 32px)}
+.fab{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:6;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+@media (min-width:48rem){.fab{display:none}}
+.new-inline{display:none}
+@media (min-width:48rem){.new-inline{display:inline-flex}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><span class="sun" aria-hidden="true"></span><span>Mi Ramen <small>Reservierungen</small></span></div>
+    <div class="top-actions">
+      <span class="badge" id="test-badge" hidden>Testmodus</span>
+      <button class="btn btn-sm" id="refresh" type="button" hidden>Aktualisieren</button>
+      <button class="btn btn-sm" id="logout" type="button" hidden>Abmelden</button>
+    </div>
+  </div>
+</header>
+<div class="demo-bar" id="demo-bar" hidden><div class="wrap">Vorschau mit Beispieldaten. Nicht mit Google verbunden; Änderungen werden nicht gespeichert und es werden keine E-Mails verschickt.</div></div>
+
+<section class="login wrap" id="login" hidden>
+  <form id="login-form">
+    <h1>Anmelden</h1>
+    <div class="field"><label for="pw">Passwort</label><input id="pw" type="password" autocomplete="current-password" required></div>
+    <p class="err" id="login-err" role="alert"></p>
+    <button class="btn btn-primary" type="submit" id="login-btn">Anmelden</button>
+  </form>
+</section>
+
+<main class="wrap" id="app" hidden>
+  <div class="toolbar">
+    <div class="daynav">
+      <button class="btn icon" id="prev" type="button" aria-label="Vorheriger Tag">‹</button>
+      <h2 id="day-label">–</h2>
+      <button class="btn icon" id="next" type="button" aria-label="Nächster Tag">›</button>
+      <button class="btn btn-sm" id="today" type="button">Heute</button>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+      <div class="views" role="group" aria-label="Ansicht">
+        <button type="button" data-view="day" aria-pressed="true">Tag</button>
+        <button type="button" data-view="week" aria-pressed="false">7 Tage</button>
+        <button type="button" data-view="all" aria-pressed="false">Alle kommenden</button>
+      </div>
+      <button class="btn btn-primary new-inline" type="button" data-new>+ Neue Reservierung</button>
+    </div>
+  </div>
+
+  <div class="tiles" aria-live="polite">
+    <div class="tile"><b id="t-count">0</b><span>Reservierungen</span></div>
+    <div class="tile"><b id="t-guests">0</b><span>Gäste erwartet</span></div>
+    <div class="tile warn"><b id="t-pending">0</b><span>Offene Anfragen</span></div>
+    <div class="tile"><b id="t-cancel">0</b><span>Storniert</span></div>
+  </div>
+
+  <div class="filters">
+    <button class="chip" type="button" data-status="active" aria-pressed="true">Aktiv</button>
+    <button class="chip" type="button" data-status="pending" aria-pressed="false">Angefragt</button>
+    <button class="chip" type="button" data-status="cancelled" aria-pressed="false">Storniert</button>
+    <button class="chip" type="button" data-status="all" aria-pressed="false">Alle</button>
+    <input class="search" id="search" type="search" placeholder="Name, Telefon, E-Mail oder Nr. suchen" aria-label="Suchen">
+  </div>
+
+  <div id="list"></div>
+</main>
+
+<button class="btn btn-primary fab" id="fab" type="button" data-new hidden>+ Neu</button>
+
+<dialog id="editor" aria-labelledby="ed-title">
+  <form id="ed-form" novalidate>
+    <div class="dlg-head"><h2 id="ed-title">Neue Reservierung</h2><button class="btn icon" type="button" id="ed-close" aria-label="Schließen">✕</button></div>
+    <div class="dlg-body">
+      <div class="row3">
+        <div class="field"><label for="f-date">Datum</label><input id="f-date" type="date" required></div>
+        <div class="field"><label for="f-time">Uhrzeit</label><input id="f-time" type="time" step="900" required></div>
+        <div class="field"><label for="f-party">Personen</label><input id="f-party" type="number" min="1" max="50" value="2" required></div>
+      </div>
+      <div class="field"><label for="f-name">Name</label><input id="f-name" autocomplete="off" required></div>
+      <div class="row">
+        <div class="field"><label for="f-phone">Telefon</label><input id="f-phone" type="tel" autocomplete="off" required></div>
+        <div class="field"><label for="f-email">E-Mail (optional)</label><input id="f-email" type="email" autocomplete="off"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label for="f-status">Status</label>
+          <select id="f-status">
+            <option value="confirmed">Bestätigt</option><option value="pending">Angefragt</option>
+            <option value="seated">Erschienen</option><option value="noshow">Nicht erschienen</option><option value="cancelled">Storniert</option>
+          </select></div>
+        <div class="field"><label for="f-lang">Sprache der E-Mails</label>
+          <select id="f-lang"><option value="de">Deutsch</option><option value="en">Englisch</option></select></div>
+      </div>
+      <div class="field"><label for="f-notes">Anmerkungen des Gastes</label><textarea id="f-notes"></textarea></div>
+      <div class="field"><label for="f-internal">Interne Notiz (sieht der Gast nicht)</label><textarea id="f-internal" placeholder="z. B. Tisch 4, Fensterplatz"></textarea></div>
+      <label class="check" for="f-notify"><input type="checkbox" id="f-notify" checked><span id="f-notify-label">Bestätigung per E-Mail an den Gast senden</span></label>
+      <p class="hint" id="cap-hint"></p>
+      <p class="err" id="ed-err" role="alert"></p>
+      <div class="dlg-foot">
+        <button class="btn" type="button" id="ed-cancel">Abbrechen</button>
+        <button class="btn btn-primary" type="submit" id="ed-save">Speichern</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+/* ---------- Verbindung: Google Apps Script oder Demo ---------- */
+const LIVE = typeof google !== "undefined" && google.script && google.script.run;
+const STATUS = { pending:"Angefragt", confirmed:"Bestätigt", seated:"Erschienen", noshow:"Nicht erschienen", cancelled:"Storniert" };
+const ACTIVE = ["pending","confirmed","seated"];
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate()+n); return iso(d); };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDay = (s, opts) => new Intl.DateTimeFormat("de-DE", opts || { weekday:"long", day:"numeric", month:"long" }).format(parse(s));
+
+let token = null;
+try { token = sessionStorage.getItem("mr-token"); } catch(e) {}
+
+function call(fn, ...args){
+  if (!LIVE) return demo[fn](...args);
+  return new Promise((resolve, reject) => {
+    google.script.run.withSuccessHandler(resolve).withFailureHandler(err => {
+      if (String(err && err.message).includes("SESSION_EXPIRED")) { logout(); reject(new Error("Sitzung abgelaufen. Bitte neu anmelden.")); }
+      else reject(err);
+    })[fn](...args);
+  });
+}
+
+/* ---------- Demo-Daten (nur Vorschau) ---------- */
+const demo = (() => {
+  const t = iso(new Date()), t1 = addDays(t,1), t2 = addDays(t,2);
+  let rows = [
+    { id:"MR-7KQ2HD", date:t, time:"12:00", party:2, name:"Katja B.", phone:"0171 2345678", email:"katja@example.com", notes:"", language:"de", status:"confirmed", source:"website", internalNote:"Fensterplatz" },
+    { id:"MR-P3XW9A", date:t, time:"12:30", party:4, name:"Familie Yilmaz", phone:"0157 8899001", email:"yilmaz@example.com", notes:"1 Kinderstuhl bitte", language:"de", status:"pending", source:"website", internalNote:"" },
+    { id:"MR-B8NC4T", date:t, time:"18:00", party:6, name:"Steve S.", phone:"0176 5544332", email:"steve@example.com", notes:"Geburtstag", language:"en", status:"confirmed", source:"website", internalNote:"" },
+    { id:"MR-Q6RM2L", date:t, time:"18:00", party:2, name:"Mika S.", phone:"02173 112233", email:"", notes:"", language:"de", status:"confirmed", source:"telefon/app", internalNote:"" },
+    { id:"MR-H5TZ7E", date:t, time:"19:30", party:3, name:"Jonas W.", phone:"0160 4455667", email:"jonas@example.com", notes:"", language:"de", status:"cancelled", source:"website", internalNote:"" },
+    { id:"MR-C2VK8S", date:t1, time:"17:30", party:2, name:"Lea M.", phone:"0151 2223334", email:"lea@example.com", notes:"Vegan", language:"de", status:"confirmed", source:"website", internalNote:"" },
+    { id:"MR-N9DF3U", date:t2, time:"12:30", party:8, name:"Team Stadtwerke", phone:"02173 998877", email:"team@example.com", notes:"Firmenessen", language:"de", status:"pending", source:"website", internalNote:"" }
+  ];
+  const wait = v => new Promise(r => setTimeout(() => r(JSON.parse(JSON.stringify(v))), 150));
+  const id = () => "MR-" + Math.random().toString(36).slice(2,8).toUpperCase();
+  return {
+    apiLogin: () => wait("demo"),
+    apiInfo: () => wait({ testMode:true, ownerEmail:"dominik.gburski@gmail.com", capacity:20, autoConfirm:true }),
+    apiList: (tk, from, to) => wait(rows.filter(b => (!from || b.date >= from) && (!to || b.date <= to)).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time))),
+    apiCreate: (tk, data) => { const b = { ...data, id:id(), source:"telefon/app" }; rows.push(b); return wait(b); },
+    apiUpdate: (tk, bid, patch, notify) => { const b = rows.find(r => r.id === bid); const before = b.status; Object.assign(b, patch); return wait({ booking:b, mailed: !!(notify && b.email && patch.status && patch.status !== before), kind:null }); },
+    apiDelete: (tk, bid) => { rows = rows.filter(r => r.id !== bid); return wait(true); }
+  };
+})();
+
+/* ---------- Zustand ---------- */
+const state = { day: iso(new Date()), view: "day", status: "active", q: "", rows: [], info: null, confirmDel: null, editing: null };
+
+function range(){
+  if (state.view === "day") return [state.day, state.day];
+  if (state.view === "week") return [state.day, addDays(state.day, 6)];
+  return [iso(new Date()), ""];
+}
+
+async function load(){
+  const [from, to] = range();
+  try { state.rows = await call("apiList", token, from, to); render(); }
+  catch (e) { toast(e.message || "Laden fehlgeschlagen."); }
+}
+
+function filtered(){
+  const q = state.q.trim().toLowerCase();
+  return state.rows.filter(b => {
+    if (state.status === "active" && !ACTIVE.includes(b.status)) return false;
+    if (state.status === "pending" && b.status !== "pending") return false;
+    if (state.status === "cancelled" && b.status !== "cancelled") return false;
+    if (!q) return true;
+    return [b.name, b.phone, b.email, b.id, b.notes].join(" ").toLowerCase().includes(q);
+  });
+}
+
+function render(){
+  const [from, to] = range();
+  $("#day-label").textContent = state.view === "day" ? fmtDay(state.day) : state.view === "week" ? `${fmtDay(from,{day:"numeric",month:"short"})} – ${fmtDay(to,{day:"numeric",month:"short"})}` : "Alle kommenden";
+  $("#prev").disabled = $("#next").disabled = state.view === "all";
+  const active = state.rows.filter(b => ACTIVE.includes(b.status));
+  $("#t-count").textContent = active.length;
+  $("#t-guests").textContent = active.reduce((s,b) => s + Number(b.party||0), 0);
+  $("#t-pending").textContent = state.rows.filter(b => b.status === "pending").length;
+  $("#t-cancel").textContent = state.rows.filter(b => b.status === "cancelled").length;
+
+  const list = filtered();
+  if (!list.length){
+    $("#list").innerHTML = `<div class="empty">Keine Reservierungen in dieser Ansicht.<br><button class="btn btn-primary" type="button" data-new style="margin-top:.9rem">+ Reservierung eintragen</button></div>`;
+    return;
+  }
+  const groups = new Map();
+  list.forEach(b => { const k = state.view === "day" ? b.time : b.date; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(b); });
+  $("#list").innerHTML = [...groups].map(([k, items]) => {
+    const guests = items.filter(b => ACTIVE.includes(b.status)).reduce((s,b) => s + Number(b.party||0), 0);
+    const head = state.view === "day" ? `${k} Uhr` : fmtDay(k, { weekday:"short", day:"numeric", month:"long" });
+    const cap = state.view === "day" && state.info ? ` · noch ${Math.max(0, state.info.capacity - guests)} frei` : "";
+    return `<section class="group"><div class="group-head"><h3>${esc(head)}</h3><span>${guests} Gäste${cap}</span></div>${items.map(card).join("")}</section>`;
+  }).join("");
+}
+
+function card(b){
+  const acts = [];
+  if (b.status === "pending") acts.push(`<button class="btn btn-sm btn-primary" data-act="confirm" data-id="${b.id}">Bestätigen</button>`);
+  if (b.status === "confirmed" || b.status === "pending") acts.push(`<button class="btn btn-sm" data-act="seated" data-id="${b.id}">Erschienen</button>`, `<button class="btn btn-sm" data-act="noshow" data-id="${b.id}">Nicht erschienen</button>`);
+  acts.push(`<button class="btn btn-sm" data-act="edit" data-id="${b.id}">Bearbeiten</button>`);
+  if (b.status !== "cancelled") acts.push(`<button class="btn btn-sm btn-danger" data-act="cancel" data-id="${b.id}">Stornieren</button>`);
+  else acts.push(`<button class="btn btn-sm btn-danger" data-act="delete" data-id="${b.id}">Löschen</button>`);
+  const confirmRow = state.confirmDel === b.id
+    ? `<div class="confirm-row" role="alert">Reservierung endgültig löschen? <button class="btn btn-sm btn-danger" data-act="delete-yes" data-id="${b.id}">Ja, löschen</button><button class="btn btn-sm" data-act="delete-no">Abbrechen</button></div>` : "";
+  const when = state.view === "day" ? `<b>${esc(b.time)}</b><span>${b.party} P.</span>` : `<b>${esc(b.time)}</b><span>${b.party} P.</span>`;
+  return `<article class="bk${b.status === "cancelled" ? " is-cancelled" : ""}">
+    <div class="when">${when}</div>
+    <div class="who"><strong>${esc(b.name)}</strong><span class="pill ${b.status}">${STATUS[b.status] || esc(b.status)}</span><span class="src">${esc(b.id)} · ${esc(b.source || "")}${b.language === "en" ? " · EN" : ""}</span></div>
+    <div class="contact"><a href="tel:${esc(String(b.phone).replace(/[^\d+]/g,""))}">${esc(b.phone)}</a>${b.email ? `<span>${esc(b.email)}</span>` : ""}</div>
+    ${b.notes || b.internalNote ? `<div class="note">${b.notes ? esc(b.notes) : ""}${b.notes && b.internalNote ? "<br>" : ""}${b.internalNote ? `<em>Intern: ${esc(b.internalNote)}</em>` : ""}</div>` : ""}
+    <div class="acts">${acts.join("")}</div>${confirmRow}
+  </article>`;
+}
+
+/* ---------- Aktionen ---------- */
+document.addEventListener("click", async e => {
+  if (e.target.closest("[data-new]")) { openEditor(null); return; }
+  const btn = e.target.closest("[data-act]"); if (!btn) return;
+  const id = btn.dataset.id, act = btn.dataset.act, b = state.rows.find(r => r.id === id);
+  if (act === "edit") return openEditor(b);
+  if (act === "delete") { state.confirmDel = id; render(); return; }
+  if (act === "delete-no") { state.confirmDel = null; render(); return; }
+  if (act === "delete-yes") {
+    btn.disabled = true;
+    try { await call("apiDelete", token, id); state.confirmDel = null; toast("Reservierung gelöscht."); load(); } catch (err) { toast(err.message); btn.disabled = false; }
+    return;
+  }
+  const status = { confirm:"confirmed", seated:"seated", noshow:"noshow", cancel:"cancelled" }[act];
+  if (!status) return;
+  btn.disabled = true;
+  const notify = (status === "confirmed" || status === "cancelled") && !!b.email;
+  try {
+    const r = await call("apiUpdate", token, id, { status }, notify);
+    toast(`${b.name}: ${STATUS[status]}${r.mailed ? " · E-Mail an Gast gesendet" : ""}`);
+    load();
+  } catch (err) { toast(err.message); btn.disabled = false; }
+});
+
+$("#prev").addEventListener("click", () => { state.day = addDays(state.day, state.view === "week" ? -7 : -1); load(); });
+$("#next").addEventListener("click", () => { state.day = addDays(state.day, state.view === "week" ? 7 : 1); load(); });
+$("#today").addEventListener("click", () => { state.day = iso(new Date()); if (state.view === "all") setView("day"); else load(); });
+document.querySelectorAll("[data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
+function setView(v){ state.view = v; document.querySelectorAll("[data-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === v))); load(); }
+document.querySelectorAll("[data-status]").forEach(b => b.addEventListener("click", () => {
+  state.status = b.dataset.status; document.querySelectorAll("[data-status]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); render();
+}));
+$("#search").addEventListener("input", e => { state.q = e.target.value; render(); });
+$("#refresh").addEventListener("click", load);
+
+/* ---------- Editor ---------- */
+const ed = $("#editor");
+function openEditor(b){
+  state.editing = b ? b.id : null;
+  $("#ed-title").textContent = b ? `Reservierung ${b.id}` : "Neue Reservierung";
+  $("#f-date").value = b ? b.date : state.day;
+  $("#f-time").value = b ? b.time : "18:00";
+  $("#f-party").value = b ? b.party : 2;
+  $("#f-name").value = b ? b.name : "";
+  $("#f-phone").value = b ? b.phone : "";
+  $("#f-email").value = b ? b.email : "";
+  $("#f-status").value = b ? b.status : "confirmed";
+  $("#f-lang").value = b ? (b.language || "de") : "de";
+  $("#f-notes").value = b ? b.notes : "";
+  $("#f-internal").value = b ? (b.internalNote || "") : "";
+  $("#f-notify").checked = !b;
+  $("#f-notify-label").textContent = b ? "Gast per E-Mail über Änderung, Bestätigung oder Storno informieren" : "Bestätigung per E-Mail an den Gast senden";
+  $("#ed-err").textContent = "";
+  updateCapHint();
+  ed.showModal();
+  $("#f-name").focus();
+}
+function updateCapHint(){
+  if (!state.info) { $("#cap-hint").textContent = ""; return; }
+  const d = $("#f-date").value, t = $("#f-time").value;
+  const used = state.rows.filter(b => b.date === d && b.time === t && ACTIVE.includes(b.status) && b.id !== state.editing).reduce((s,b) => s + Number(b.party||0), 0);
+  const inView = state.rows.some(b => b.date === d) || (state.view === "day" && state.day === d);
+  $("#cap-hint").textContent = inView ? `Um ${t || "–"} Uhr sind bereits ${used} von ${state.info.capacity} Plätzen vergeben.` : "";
+}
+["#f-date","#f-time"].forEach(s => $(s).addEventListener("input", updateCapHint));
+$("#ed-close").addEventListener("click", () => ed.close());
+$("#ed-cancel").addEventListener("click", () => ed.close());
+$("#ed-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const data = {
+    date: $("#f-date").value, time: $("#f-time").value, party: Number($("#f-party").value),
+    name: $("#f-name").value.trim(), phone: $("#f-phone").value.trim(), email: $("#f-email").value.trim(),
+    status: $("#f-status").value, language: $("#f-lang").value, notes: $("#f-notes").value.trim(), internalNote: $("#f-internal").value.trim()
+  };
+  const err = !data.date ? "Bitte ein Datum wählen." : !data.time ? "Bitte eine Uhrzeit wählen." : !(data.party >= 1) ? "Bitte die Personenzahl angeben."
+    : data.name.length < 2 ? "Bitte einen Namen angeben." : data.phone.replace(/\D/g,"").length < 6 ? "Bitte eine gültige Telefonnummer angeben."
+    : data.email && !/^\S+@\S+\.\S+$/.test(data.email) ? "Bitte eine gültige E-Mail-Adresse angeben." : "";
+  if (err) { $("#ed-err").textContent = err; return; }
+  const notify = $("#f-notify").checked && !!data.email;
+  const save = $("#ed-save"); save.disabled = true;
+  try {
+    if (state.editing) {
+      const r = await call("apiUpdate", token, state.editing, data, notify);
+      toast("Gespeichert" + (r.mailed ? " · E-Mail an Gast gesendet" : ""));
+    } else {
+      await call("apiCreate", token, data, notify);
+      toast("Reservierung eingetragen" + (notify ? " · Bestätigung gesendet" : ""));
+    }
+    ed.close();
+    if (state.view === "day" && data.date !== state.day) state.day = data.date;
+    load();
+  } catch (e2) { $("#ed-err").textContent = e2.message || "Speichern fehlgeschlagen."; }
+  finally { save.disabled = false; }
+});
+
+/* ---------- Anmeldung ---------- */
+$("#login-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const b = $("#login-btn"); b.disabled = true; $("#login-err").textContent = "";
+  try {
+    token = await call("apiLogin", $("#pw").value);
+    try { sessionStorage.setItem("mr-token", token); } catch(_) {}
+    $("#pw").value = "";
+    start();
+  } catch (err) { $("#login-err").textContent = err.message || "Anmeldung fehlgeschlagen."; }
+  finally { b.disabled = false; }
+});
+function logout(){
+  token = null; try { sessionStorage.removeItem("mr-token"); } catch(_) {}
+  $("#app").hidden = $("#fab").hidden = $("#refresh").hidden = $("#logout").hidden = true;
+  $("#login").hidden = false;
+}
+$("#logout").addEventListener("click", logout);
+
+async function start(){
+  try { state.info = await call("apiInfo", token); }
+  catch (e) { if (LIVE) { logout(); return; } }
+  $("#test-badge").hidden = !(state.info && state.info.testMode);
+  $("#login").hidden = true;
+  $("#app").hidden = $("#fab").hidden = $("#refresh").hidden = false;
+  $("#logout").hidden = !LIVE;
+  load();
+}
+
+let toastTimer;
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3200); }
+
+if (!LIVE) { $("#demo-bar").hidden = false; token = "demo"; start(); }
+else if (token) start();
+else { $("#login").hidden = false; }
+</script>
