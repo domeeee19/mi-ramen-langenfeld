@@ -10,7 +10,7 @@
 const CONFIG = {
   RESTAURANT: 'Mi Ramen Langenfeld',
   OWNER_EMAIL: 'dominik.gburski@gmail.com',   // bekommt jede neue Buchung
-  TEST_MODE: true,                            // true = ALLE Mails (auch an Gäste) gehen an OWNER_EMAIL
+  TEST_MODE: false,                            // true = ALLE Mails (auch an Gäste) gehen an OWNER_EMAIL
   ADMIN_PASSWORD: 'hNqPc8bpQTnMqP3fhkaf',            // Passwort für die Buchungs-App – unbedingt ändern!
   PHONE: '02173 8931968',
   ADDRESS: 'Marktplatz 6, 40764 Langenfeld',
