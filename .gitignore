@@ -4,3 +4,4 @@ preview.html
 theke-vorher-nachher.png
 __pycache__/
 .DS_Store
+_site/

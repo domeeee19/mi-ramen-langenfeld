@@ -5,9 +5,12 @@
 Aufruf:  python3 build.py
 Vor dem Livegang SITE_URL auf die echte Domain setzen.
 """
-import base64, json, pathlib
+import base64, json, os, pathlib
 
-SITE_URL = "https://www.ihre-domain.de"   # TODO: echte Domain eintragen, ohne / am Ende
+# TODO: echte Domain eintragen, ohne / am Ende (oder per Umgebungsvariable SITE_URL setzen)
+SITE_URL = os.environ.get("SITE_URL", "https://www.ihre-domain.de").rstrip("/")
+# NOINDEX=1: Suchmaschinen sollen diese Kopie nicht aufnehmen (z. B. Demo auf GitHub Pages)
+NOINDEX = os.environ.get("NOINDEX") == "1"
 ROOT = pathlib.Path(__file__).parent
 SRC = ROOT / "src"
 OUT = ROOT / "site"
@@ -85,7 +88,7 @@ def build_site(src):
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{TITLE}</title>
 <meta name="description" content="{DESCRIPTION}">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="{'noindex, nofollow' if NOINDEX else 'index, follow'}">
 <link rel="canonical" href="{SITE_URL}/">
 <meta name="theme-color" content="#E3191F">
 <meta name="geo.region" content="DE-NW">
@@ -108,7 +111,7 @@ def build_site(src):
 {ld(faq_schema(src))}
 """
     (OUT / "index.html").write_text(seo + head + "\n</head>\n<body>\n" + body + "\n</body>\n</html>\n", encoding="utf-8")
-    (OUT / "robots.txt").write_text(f"User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n", encoding="utf-8")
+    (OUT / "robots.txt").write_text("User-agent: *\nDisallow: /\n" if NOINDEX else f"User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}/sitemap.xml\n", encoding="utf-8")
     (OUT / "sitemap.xml").write_text(
         '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         f"  <url><loc>{SITE_URL}/</loc><changefreq>monthly</changefreq><priority>1.0</priority></url>\n</urlset>\n", encoding="utf-8")
