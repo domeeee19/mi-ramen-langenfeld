@@ -1,39 +1,10 @@
 /**
- * Mi Ramen Langenfeld – Reservierungen
- * Google Apps Script: nimmt Reservierungen der Website an, speichert sie im Google Sheet,
+ * Reservierungen – Vorlage für alle Kunden. Nicht pro Kunde ändern: alle Einstellungen stehen in Config.gs.
+ * Nimmt Reservierungen an (Website oder eigene Buchungsseite), speichert sie im Google Sheet,
  * verschickt Bestätigung (Gast) und Benachrichtigung (Restaurant) und liefert die Buchungs-App.
  *
- * Einrichtung: siehe ANLEITUNG.md
+ * Einrichtung: siehe ANLEITUNG.md, neuer Kunde: vorlage/NEUER-KUNDE.md
  */
-
-/* ======================= EINSTELLUNGEN ======================= */
-const CONFIG = {
-  RESTAURANT: 'Mi Ramen Langenfeld',
-  OWNER_EMAIL: 'dominik.gburski@gmail.com',   // bekommt jede neue Buchung
-  TEST_MODE: false,                            // true = ALLE Mails (auch an Gäste) gehen an OWNER_EMAIL
-  ADMIN_PASSWORD: 'hNqPc8bpQTnMqP3fhkaf',            // Passwort für die Buchungs-App – unbedingt ändern!
-  PHONE: '02173 8931968',
-  ADDRESS: 'Marktplatz 6, 40764 Langenfeld',
-  WEBSITE: '',                                // z. B. 'https://www.mi-ramen-langenfeld.de'
-  SHEET_NAME: 'Reservierungen',
-  AUTO_CONFIRM: true,        // true = sofort bestätigen; false = "Anfrage erhalten", Bestätigung in der App
-  CAPACITY_PER_SLOT: 20,     // max. Gäste, die zur selben Uhrzeit beginnen
-  MAX_PARTY: 8,              // größere Gruppen bitte telefonisch
-  SLOT_MINUTES: 30,
-  LAST_SEATING_BEFORE_CLOSE: 60,
-  MIN_LEAD_MINUTES: 60,      // frühestens 60 Min. im Voraus online buchbar
-  BOOK_AHEAD_DAYS: 60,
-  // 0 = Sonntag … 6 = Samstag, null = Ruhetag (gleich wie auf der Website)
-  HOURS: {
-    0: [['12:00', '22:00']],
-    1: null,
-    2: [['12:00', '15:30'], ['17:00', '22:00']],
-    3: [['12:00', '15:30'], ['17:00', '22:00']],
-    4: [['12:00', '15:30'], ['17:00', '22:00']],
-    5: [['12:00', '15:30'], ['17:00', '22:00']],
-    6: [['12:00', '22:00']]
-  }
-};
 
 const COLUMNS = ['ID', 'Erstellt', 'Datum', 'Uhrzeit', 'Personen', 'Name', 'Telefon', 'E-Mail',
   'Anmerkungen', 'Sprache', 'Status', 'Quelle', 'Geändert', 'Interne Notiz'];
@@ -48,7 +19,7 @@ const TZ = 'Europe/Berlin';
 function setup() {
   let ss = null;
   try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) { ss = null; }
-  if (!ss) ss = SpreadsheetApp.create('Mi Ramen – Reservierungen');
+  if (!ss) ss = SpreadsheetApp.create(CONFIG.RESTAURANT + ' – Reservierungen');
   PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', ss.getId());
   let sh = ss.getSheetByName(CONFIG.SHEET_NAME);
   if (!sh) sh = ss.insertSheet(CONFIG.SHEET_NAME);
@@ -84,9 +55,33 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.action === 'availability') return json_(availability_(String(p.date || '')));
   if (p.action === 'ping') return json_({ ok: true });
-  return HtmlService.createTemplateFromFile('Admin').evaluate()
-    .setTitle('Mi Ramen · Reservierungen')
+  // ?seite=buchen: öffentliche Buchungsseite für Kunden ohne eigene Website (verlinken oder per iframe einbetten)
+  const booking = p.seite === 'buchen';
+  return page_(booking ? 'Buchen' : 'Admin', booking ? publicConfig_() : { restaurant: CONFIG.RESTAURANT, color: CONFIG.COLOR })
+    .setTitle(CONFIG.RESTAURANT + (booking ? ' · Tisch reservieren' : ' · Reservierungen'))
+    .setXFrameOptionsMode(booking ? HtmlService.XFrameOptionsMode.ALLOWALL : HtmlService.XFrameOptionsMode.DEFAULT);
+}
+
+/** Liefert eine HTML-Datei mit den öffentlichen Einstellungen als window.CFG. */
+function page_(file, cfg) {
+  const json = JSON.stringify(cfg).replace(/</g, '\\u003c');
+  return HtmlService.createHtmlOutput('<script>window.CFG=' + json + ';</script>' + HtmlService.createHtmlOutputFromFile(file).getContent())
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function publicConfig_() {
+  return { restaurant: CONFIG.RESTAURANT, color: CONFIG.COLOR, phone: CONFIG.PHONE, address: CONFIG.ADDRESS,
+    hours: CONFIG.HOURS, maxParty: CONFIG.MAX_PARTY, bookAheadDays: CONFIG.BOOK_AHEAD_DAYS };
+}
+
+/* Buchungsseite (google.script.run, ohne Anmeldung) */
+function apiBook(data) {
+  if (!data || data.website) return { ok: true, status: 'confirmed' };   // Honeypot
+  return handleReservation_(Object.assign({}, data, { source: 'buchungsseite' }));
+}
+
+function apiSlots(date) {
+  return availability_(String(date || ''));
 }
 
 function json_(obj) {
@@ -251,8 +246,9 @@ function apiLogin(password) {
   const cache = CacheService.getScriptCache();
   const fails = Number(cache.get('login_fails') || 0);
   if (fails >= 10) throw new Error('Zu viele Fehlversuche. Bitte in 10 Minuten erneut versuchen.');
-  if (CONFIG.ADMIN_PASSWORD === 'BITTE-AENDERN') throw new Error('Bitte zuerst ADMIN_PASSWORD in Code.gs ändern.');
-  if (String(password) !== CONFIG.ADMIN_PASSWORD) {
+  const pw = PropertiesService.getScriptProperties().getProperty('ADMIN_PASSWORD') || CONFIG.ADMIN_PASSWORD;
+  if (!pw || pw === 'BITTE-AENDERN') throw new Error('Bitte zuerst ein Passwort als Skripteigenschaft ADMIN_PASSWORD speichern.');
+  if (String(password) !== pw) {
     cache.put('login_fails', String(fails + 1), 600);
     throw new Error('Falsches Passwort.');
   }
@@ -371,7 +367,7 @@ const MAIL_TEXT = {
     cancelled: { subject: 'Ihre Reservierung wurde storniert', title: 'Reservierung storniert', intro: 'Ihre folgende Reservierung wurde storniert:' },
     hello: 'Hallo', date: 'Datum', time: 'Uhrzeit', party: 'Personen', name: 'Name', notes: 'Anmerkungen', ref: 'Buchungsnummer',
     change: 'Sie möchten etwas ändern oder absagen? Rufen Sie uns an unter', orReply: 'oder antworten Sie einfach auf diese E-Mail.',
-    sign: 'Ihr Mi Ramen Team', clock: ' Uhr', cancelledMore: 'Wir hoffen, Sie bald wieder bei uns begrüßen zu dürfen.'
+    sign: 'Ihr Team von {name}', clock: ' Uhr', cancelledMore: 'Wir hoffen, Sie bald wieder bei uns begrüßen zu dürfen.'
   },
   en: {
     confirmed: { subject: 'Your reservation is confirmed', title: 'We look forward to seeing you!', intro: 'thank you for your reservation. Your table is booked:' },
@@ -380,7 +376,7 @@ const MAIL_TEXT = {
     cancelled: { subject: 'Your reservation has been cancelled', title: 'Reservation cancelled', intro: 'The following reservation has been cancelled:' },
     hello: 'Hello', date: 'Date', time: 'Time', party: 'Guests', name: 'Name', notes: 'Notes', ref: 'Booking reference',
     change: 'Need to change or cancel? Call us on', orReply: 'or simply reply to this email.',
-    sign: 'Your Mi Ramen team', clock: '', cancelledMore: 'We hope to welcome you again soon.'
+    sign: 'Your team at {name}', clock: '', cancelledMore: 'We hope to welcome you again soon.'
   }
 };
 
@@ -393,8 +389,8 @@ function esc_(s) {
 function mailShell_(title, inner) {
   return '<div style="background:#F4F1EB;padding:24px 12px;font-family:Arial,Helvetica,sans-serif;color:#2C2A23">' +
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden">' +
-    '<tr><td style="background:#E3191F;height:6px;font-size:0;line-height:0">&nbsp;</td></tr>' +
-    '<tr><td style="padding:24px 28px 8px"><div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:#E3191F;font-weight:bold">Mi Ramen · Noodles &amp; Sushi</div>' +
+    '<tr><td style="background:' + CONFIG.COLOR + ';height:6px;font-size:0;line-height:0">&nbsp;</td></tr>' +
+    '<tr><td style="padding:24px 28px 8px"><div style="font-size:13px;letter-spacing:2px;text-transform:uppercase;color:' + CONFIG.COLOR + ';font-weight:bold">' + esc_(CONFIG.RESTAURANT + (CONFIG.TAGLINE ? ' · ' + CONFIG.TAGLINE : '')) + '</div>' +
     '<h1 style="margin:8px 0 0;font-size:22px;line-height:1.3;color:#2C2A23">' + esc_(title) + '</h1></td></tr>' +
     '<tr><td style="padding:8px 28px 24px;font-size:15px;line-height:1.6">' + inner + '</td></tr>' +
     '<tr><td style="padding:16px 28px;background:#1B1B1A;color:#D9D5CC;font-size:13px;line-height:1.6">' +
@@ -425,7 +421,7 @@ function sendCustomerMail_(b, kind) {
   inner += kind === 'cancelled'
     ? '<p>' + L.cancelledMore + '</p>'
     : '<p>' + L.change + ' <strong>' + esc_(CONFIG.PHONE) + '</strong> ' + L.orReply + '</p>';
-  inner += '<p>' + L.sign + '</p>';
+  inner += '<p>' + esc_(L.sign.replace('{name}', CONFIG.RESTAURANT)) + '</p>';
   const testNote = CONFIG.TEST_MODE ? '[TEST – an Gast: ' + b.email + '] ' : '';
   MailApp.sendEmail({
     to: recipient_(b.email),
@@ -445,7 +441,7 @@ function sendOwnerMail_(b) {
     detailsTable_(Object.assign({}, b, { language: 'de' }), L) +
     '<p>Telefon: <strong>' + esc_(b.phone) + '</strong><br>E-Mail: <strong>' + esc_(b.email) + '</strong><br>' +
     'Sprache: ' + (b.language === 'en' ? 'Englisch' : 'Deutsch') + '</p>' +
-    (url ? '<p><a href="' + esc_(url) + '" style="display:inline-block;background:#E3191F;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:999px;font-weight:bold">Buchungs-App öffnen</a></p>' : '');
+    (url ? '<p><a href="' + esc_(url) + '" style="display:inline-block;background:' + CONFIG.COLOR + ';color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:999px;font-weight:bold">Buchungs-App öffnen</a></p>' : '');
   MailApp.sendEmail({
     to: CONFIG.OWNER_EMAIL,
     subject: (CONFIG.TEST_MODE ? '[TEST] ' : '') + 'Neue Reservierung: ' + longDate_(b.date, 'de') + ', ' + b.time + ' Uhr – ' + b.party + ' P. – ' + b.name,
@@ -465,7 +461,7 @@ function testBanner_(realEmail) {
 function plain_(b, L, K) {
   return L.hello + ' ' + b.name + ',\n\n' + K.intro + '\n\n' + L.date + ': ' + longDate_(b.date, b.language) + '\n' +
     L.time + ': ' + b.time + L.clock + '\n' + L.party + ': ' + b.party + '\n' + (b.notes ? L.notes + ': ' + b.notes + '\n' : '') +
-    L.ref + ': ' + b.id + '\n\n' + L.change + ' ' + CONFIG.PHONE + ' ' + L.orReply + '\n\n' + L.sign + '\n' + CONFIG.RESTAURANT + ', ' + CONFIG.ADDRESS;
+    L.ref + ': ' + b.id + '\n\n' + L.change + ' ' + CONFIG.PHONE + ' ' + L.orReply + '\n\n' + L.sign.replace('{name}', CONFIG.RESTAURANT) + '\n' + CONFIG.RESTAURANT + ', ' + CONFIG.ADDRESS;
 }
 
 function adminUrl_() {

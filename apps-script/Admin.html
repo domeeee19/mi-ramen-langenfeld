@@ -1,4 +1,4 @@
-<title>Mi Ramen Reservierungen</title>
+<title>Reservierungen</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -7,7 +7,7 @@
 /* Layout: a service-desk tool. Sticky top bar, day navigator, four count tiles, then the day's bookings grouped by start time like a paper reservation book. */
 :root{
   --bg:#F4F1EB; --surface:#FFFFFF; --ink:#2C2A23; --soft:#5F5B50; --line:#E2DDD2;
-  --red:#E3191F; --red-ink:#FFFFFF; --sheet:#1B1B1A;
+  --brand:#E3191F; --red:#E3191F; --red-ink:#FFFFFF; --sheet:#1B1B1A;
   --st-pending:#9A6200; --st-pending-bg:#FFF1CF;
   --st-confirmed:#1F6B45; --st-confirmed-bg:#DDF3E6;
   --st-seated:#2457A6; --st-seated-bg:#E1EBFA;
@@ -44,7 +44,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--sheet);color:#F3F0EA}
 .top .wrap{display:flex;align-items:center;justify-content:space-between;gap:.75rem;min-height:3.5rem}
 .brand{display:flex;align-items:center;gap:.6rem;font-family:var(--font-display);font-size:1.05rem}
-.brand .sun{width:1.4rem;height:1.4rem;border-radius:50%;background:#E3191F;flex:none}
+.brand .sun{width:1.4rem;height:1.4rem;border-radius:50%;background:var(--brand);flex:none}
 .brand small{font-family:var(--font-body);font-size:.78rem;color:#B9B4AA;font-weight:500}
 .top-actions{display:flex;gap:.4rem;align-items:center}
 .top .btn{background:transparent;color:#F3F0EA;border-color:#4A4844}
@@ -132,7 +132,7 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <header class="top">
   <div class="wrap">
-    <div class="brand"><span class="sun" aria-hidden="true"></span><span>Mi Ramen <small>Reservierungen</small></span></div>
+    <div class="brand"><span class="sun" aria-hidden="true"></span><span><span id="brand-name">Demo-Restaurant</span> <small>Reservierungen</small></span></div>
     <div class="top-actions">
       <span class="badge" id="test-badge" hidden>Testmodus</span>
       <button class="btn btn-sm" id="refresh" type="button" hidden>Aktualisieren</button>
@@ -229,6 +229,9 @@ dialog::backdrop{background:rgba(0,0,0,.5)}
 
 <script>
 /* ---------- Verbindung: Google Apps Script oder Demo ---------- */
+const CFG = window.CFG || { restaurant: "Demo-Restaurant", color: "#E3191F" };  // window.CFG setzt Code.gs (page_)
+document.getElementById("brand-name").textContent = CFG.restaurant;
+document.documentElement.style.setProperty("--brand", CFG.color);
 const LIVE = typeof google !== "undefined" && google.script && google.script.run;
 const STATUS = { pending:"Angefragt", confirmed:"Bestätigt", seated:"Erschienen", noshow:"Nicht erschienen", cancelled:"Storniert" };
 const ACTIVE = ["pending","confirmed","seated"];
@@ -269,7 +272,7 @@ const demo = (() => {
   const id = () => "MR-" + Math.random().toString(36).slice(2,8).toUpperCase();
   return {
     apiLogin: () => wait("demo"),
-    apiInfo: () => wait({ testMode:true, ownerEmail:"dominik.gburski@gmail.com", capacity:20, autoConfirm:true }),
+    apiInfo: () => wait({ testMode:true, ownerEmail:"inhaber@example.com", capacity:20, autoConfirm:true }),
     apiList: (tk, from, to) => wait(rows.filter(b => (!from || b.date >= from) && (!to || b.date <= to)).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time))),
     apiCreate: (tk, data) => { const b = { ...data, id:id(), source:"telefon/app" }; rows.push(b); return wait(b); },
     apiUpdate: (tk, bid, patch, notify) => { const b = rows.find(r => r.id === bid); const before = b.status; Object.assign(b, patch); return wait({ booking:b, mailed: !!(notify && b.email && patch.status && patch.status !== before), kind:null }); },

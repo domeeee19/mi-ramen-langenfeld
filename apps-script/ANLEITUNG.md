@@ -12,8 +12,10 @@ Die Automatisierung läuft kostenlos in **deinem Google-Konto** (dominik.gburski
 
 | Datei | Zweck |
 |---|---|
-| `Code.gs` | Logik: Buchung speichern, Plätze prüfen, E-Mails, Funktionen für die App |
+| `Config.gs` | Einstellungen dieses Kunden: Name, Farbe, E-Mail, Öffnungszeiten, Plätze |
+| `Code.gs` | Logik für alle Kunden gleich: Buchung speichern, Plätze prüfen, E-Mails, Funktionen für die App |
 | `Admin.html` | Buchungs-App: Tagesansicht, bestätigen, stornieren, bearbeiten, Telefonbuchungen eintragen |
+| `Buchen.html` | Eigene Buchungsseite (`…/exec?seite=buchen`) für Kunden ohne Website mit Formular |
 | `appsscript.json` | Zeitzone Europe/Berlin, Web-App-Einstellungen |
 | `../site/index.html` | Die Website zum Hochladen, bereits auf `mode: "appsscript"` umgestellt |
 
@@ -21,10 +23,10 @@ Die Automatisierung läuft kostenlos in **deinem Google-Konto** (dominik.gburski
 
 1. Mit dem Google-Konto **dominik.gburski@gmail.com** auf <https://sheets.new> eine neue Tabelle anlegen und sie **„Mi Ramen – Reservierungen“** nennen.
 2. Menü **Erweiterungen → Apps Script**.
-3. Den Inhalt von `Code.gs` komplett in die Datei `Code.gs` im Editor einfügen (vorhandenen Code ersetzen).
-4. Links auf **+ → HTML** klicken, die Datei genau **`Admin`** nennen und den Inhalt von `Admin.html` einfügen.
+3. Den Inhalt von `Code.gs` komplett in die Datei `Code.gs` im Editor einfügen (vorhandenen Code ersetzen). Mit **+ → Skript** eine Datei **`Config`** anlegen und `Config.gs` einfügen.
+4. Links auf **+ → HTML** klicken, die Datei genau **`Admin`** nennen und den Inhalt von `Admin.html` einfügen. Genauso **`Buchen`** mit `Buchen.html`.
 5. **Projekteinstellungen** (Zahnrad) → Häkchen bei **„Manifestdatei appsscript.json im Editor anzeigen“**. Dann `appsscript.json` öffnen und den Inhalt der gleichnamigen Datei einfügen.
-6. In `Code.gs` oben **`ADMIN_PASSWORD`** auf ein eigenes Passwort ändern. Speichern (Strg/Cmd + S).
+6. Passwort für die Buchungs-App: **Projekteinstellungen → Skripteigenschaften → Eigenschaft hinzufügen**, Name `ADMIN_PASSWORD`, Wert = das Passwort. So steht es nicht im Code. Speichern (Strg/Cmd + S).
 
 ## 2. Einrichten und Test-Mail
 
@@ -70,14 +72,14 @@ Danach zeigt der Kalender ausgebuchte Uhrzeiten durchgestrichen an. Nach dem Abs
 
 ## 6. Livebetrieb starten
 
-1. In `Code.gs` **`TEST_MODE: false`** setzen.
+1. In `Config.gs` **`TEST_MODE: false`** setzen.
 2. Optional anpassen: `CAPACITY_PER_SLOT`, `MAX_PARTY`, `AUTO_CONFIRM`.
    - `AUTO_CONFIRM: false` bedeutet: Gäste bekommen erst „Anfrage erhalten“, und du bestätigst in der App.
 3. **Wichtig nach jeder Code-Änderung:** **Bereitstellen → Bereitstellungen verwalten → Bearbeiten (Stift) → Version: Neue Version → Bereitstellen**. Die URL bleibt gleich.
 
 ## Gut zu wissen
 
-- **Öffnungszeiten** stehen zweimal: in `Code.gs` (`HOURS`) und in der Website. Bei Änderungen bitte beide anpassen.
+- **Öffnungszeiten** stehen zweimal: in `Config.gs` (`HOURS`) und in der Website. Bei Änderungen bitte beide anpassen.
 - **E-Mail-Limit:** Ein kostenloses Gmail-Konto darf per Script ca. **100 Empfänger pro Tag** anschreiben, Google Workspace ca. 1.500. Jede Online-Buchung braucht 2 Mails, also reicht das für etwa 50 Buchungen am Tag.
 - **Absender** ist das Google-Konto, in dem das Script läuft. Mit einer eigenen Restaurant-Adresse (z. B. Google Workspace mit info@…) wirkt das professioneller. Dann auch `OWNER_EMAIL` ändern.
 - **Datenschutz:** Für den Livebetrieb empfiehlt sich ein **Google-Workspace-Konto**, denn nur dafür bietet Google einen Auftragsverarbeitungsvertrag nach Art. 28 DSGVO an. Die Datenschutzerklärung der Website ist schon auf Google Apps Script umgestellt.

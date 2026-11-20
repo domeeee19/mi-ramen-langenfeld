@@ -1,0 +1,231 @@
+<title>Tisch reservieren</title>
+<style>
+/* Öffentliche Buchungsseite: eine Spalte, Markenfarbe aus Config.gs (window.CFG.color). */
+:root{--brand:#E3191F;--bg:#FFFFFF;--soft-bg:#F4F2EE;--ink:#22201C;--soft:#5E5A52;--line:#E2DED6;--ok:#1F6B45;
+  --font:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#161513;--soft-bg:#201F1C;--ink:#EEEBE5;--soft:#ADA89D;--line:#36342F;--ok:#7AD3A3;color-scheme:dark}}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.55}
+.wrap{max-width:34rem;margin:0 auto;padding:1.25rem max(16px,env(safe-area-inset-right,0px)) 2.5rem max(16px,env(safe-area-inset-left,0px));display:grid;gap:1.1rem}
+header{border-top:6px solid var(--brand);padding-top:1rem;display:flex;justify-content:space-between;align-items:flex-start;gap:1rem}
+h1{margin:0;font-size:1.5rem;line-height:1.2}
+.sub{margin:.2rem 0 0;color:var(--soft);font-size:.9rem}
+.lang{display:flex;gap:2px;border:1px solid var(--line);border-radius:999px;padding:2px;flex:none}
+.lang button{border:0;background:none;color:var(--soft);font:inherit;font-size:.8rem;font-weight:700;padding:.25rem .6rem;border-radius:999px;cursor:pointer;min-height:2rem}
+.lang button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.card{border:1px solid var(--line);border-radius:12px;padding:1rem;display:grid;gap:.75rem}
+h2{margin:0;font-size:1rem}
+.cal-head{display:flex;justify-content:space-between;align-items:center}
+.nav{width:2.5rem;height:2.5rem;border-radius:50%;border:1px solid var(--line);background:none;color:var(--ink);font-size:1.1rem;cursor:pointer}
+.nav:disabled{opacity:.35;cursor:not-allowed}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.dow{font-size:.75rem;color:var(--soft);font-weight:700}
+.day{aspect-ratio:1;max-width:100%;border:1px solid transparent;border-radius:8px;background:none;color:var(--ink);font:inherit;font-variant-numeric:tabular-nums;cursor:pointer}
+.day:hover:not(:disabled){border-color:var(--ink)}
+.day:disabled{opacity:.35;text-decoration:line-through;cursor:not-allowed}
+.day[aria-pressed="true"],.slot[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#FFFFFF}
+.slots{display:flex;flex-wrap:wrap;gap:.45rem}
+.slot{border:1px solid var(--line);background:none;color:var(--ink);border-radius:999px;padding:.4rem .85rem;min-height:2.4rem;font:inherit;font-size:.9rem;font-variant-numeric:tabular-nums;cursor:pointer}
+.slot:disabled{opacity:.4;text-decoration:line-through;cursor:not-allowed}
+.hint{margin:0;color:var(--soft);font-size:.9rem}
+form{display:grid;gap:.8rem}
+label{font-size:.88rem;font-weight:700;display:grid;gap:.3rem}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.6rem .75rem;min-height:2.75rem;width:100%}
+textarea{min-height:4.5rem;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.row{display:grid;gap:.8rem;grid-template-columns:1fr 1fr}
+@media (max-width:30rem){.row{grid-template-columns:1fr}}
+.check{display:flex;gap:.55rem;align-items:flex-start;font-weight:400;font-size:.85rem;color:var(--soft)}
+.check input{width:1.1rem;height:1.1rem;min-height:0;margin-top:.2rem;accent-color:var(--brand)}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.submit{background:var(--brand);color:#FFFFFF;border:0;border-radius:999px;padding:.75rem 1.2rem;min-height:2.9rem;font:inherit;font-weight:700;cursor:pointer}
+.submit:disabled{opacity:.6;cursor:progress}
+.err{color:var(--brand);margin:0;font-size:.9rem;min-height:1.2em}
+.result{border:1px solid var(--ok);border-radius:12px;padding:1rem;display:grid;gap:.5rem}
+.result h2{color:var(--ok);font-size:1.15rem}
+.demo{background:#FFF1B8;color:#3D3200;border-radius:8px;padding:.5rem .75rem;font-size:.85rem;margin:0}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="name">Demo-Restaurant</h1>
+      <p class="sub" id="contact"></p>
+    </div>
+    <div class="lang" role="group" aria-label="Sprache / Language">
+      <button type="button" data-lang="de" aria-pressed="true">DE</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </header>
+  <p class="demo" id="demo" hidden>Vorschau: nicht verbunden, es wird nichts gespeichert.</p>
+
+  <section class="card" aria-labelledby="t-day">
+    <div class="cal-head">
+      <button type="button" class="nav" id="prev" aria-label="Vorheriger Monat">‹</button>
+      <h2 id="t-day">–</h2>
+      <button type="button" class="nav" id="next" aria-label="Nächster Monat">›</button>
+    </div>
+    <div class="cal" id="cal"></div>
+    <h2 id="t-time" data-t="time">Uhrzeit</h2>
+    <div class="slots" id="slots" role="group" aria-labelledby="t-time"></div>
+  </section>
+
+  <form class="card" id="form" novalidate>
+    <label for="party"><span data-t="party">Personen</span><select id="party"></select></label>
+    <label for="name-in"><span data-t="name">Name</span><input id="name-in" autocomplete="name" required></label>
+    <div class="row">
+      <label for="phone"><span data-t="phone">Telefon</span><input id="phone" type="tel" autocomplete="tel" required></label>
+      <label for="email"><span data-t="email">E-Mail</span><input id="email" type="email" autocomplete="email" required></label>
+    </div>
+    <label for="notes"><span data-t="notes">Anmerkungen (optional)</span><textarea id="notes"></textarea></label>
+    <div class="hp" aria-hidden="true"><label for="website">Website</label><input id="website" tabindex="-1" autocomplete="off"></div>
+    <label class="check" for="consent"><input type="checkbox" id="consent"><span data-t="consent">Ich bin einverstanden, dass meine Angaben zur Bearbeitung der Reservierung verwendet werden.</span></label>
+    <p class="err" id="err" role="alert"></p>
+    <button class="submit" type="submit" id="submit" data-t="submit">Tisch reservieren</button>
+  </form>
+
+  <div class="result" id="result" hidden tabindex="-1">
+    <h2 id="r-title"></h2>
+    <p id="r-text" style="margin:0"></p>
+  </div>
+</div>
+
+<script>
+const CFG = window.CFG || { restaurant: "Demo-Restaurant", color: "#E3191F", phone: "0123 456789", address: "Musterstraße 1, 12345 Musterstadt",
+  hours: { 0: [["12:00","21:00"]], 1: null, 2: [["11:30","14:30"],["17:00","22:00"]], 3: [["11:30","14:30"],["17:00","22:00"]], 4: [["11:30","14:30"],["17:00","22:00"]], 5: [["11:30","14:30"],["17:00","22:00"]], 6: [["12:00","22:00"]] },
+  maxParty: 8, bookAheadDays: 60 };
+const LIVE = typeof google !== "undefined" && google.script && google.script.run;
+const T = {
+  de: { time: "Uhrzeit", party: "Personen", name: "Name", phone: "Telefon", email: "E-Mail", notes: "Anmerkungen (optional)",
+    consent: "Ich bin einverstanden, dass meine Angaben zur Bearbeitung der Reservierung verwendet werden.", submit: "Tisch reservieren",
+    sending: "Wird gesendet …", pickDay: "Bitte zuerst einen Tag wählen.", loading: "Freie Zeiten werden geladen …", noSlots: "An diesem Tag ist nichts mehr frei.",
+    errDate: "Bitte Tag und Uhrzeit wählen.", errName: "Bitte Ihren Namen angeben.", errContact: "Bitte gültige Telefonnummer und E-Mail-Adresse angeben.",
+    errConsent: "Bitte die Einwilligung bestätigen.", errFull: "Diese Uhrzeit ist gerade ausgebucht. Bitte eine andere wählen.",
+    errFail: "Das hat nicht geklappt. Bitte rufen Sie uns an: ", okTitle: "Tisch reserviert", pendTitle: "Anfrage erhalten",
+    okText: (d, t, p, m) => `Ihr Tisch für ${p} am ${d} um ${t} Uhr ist reserviert. Die Bestätigung geht an ${m}.`,
+    pendText: (d, t, p, m) => `Ihre Anfrage für ${p} am ${d} um ${t} Uhr ist da. Wir bestätigen sie per E-Mail an ${m}.`,
+    persons: n => n === 1 ? "1 Person" : n + " Personen", prev: "Vorheriger Monat", next: "Nächster Monat" },
+  en: { time: "Time", party: "Guests", name: "Name", phone: "Phone", email: "Email", notes: "Notes (optional)",
+    consent: "I agree that my details are used to process this reservation.", submit: "Book a table",
+    sending: "Sending …", pickDay: "Please choose a day first.", loading: "Loading available times …", noSlots: "No times left on this day.",
+    errDate: "Please choose a day and time.", errName: "Please enter your name.", errContact: "Please enter a valid phone number and email address.",
+    errConsent: "Please confirm your consent.", errFull: "This time has just been booked up. Please choose another.",
+    errFail: "Something went wrong. Please call us: ", okTitle: "Table booked", pendTitle: "Request received",
+    okText: (d, t, p, m) => `Your table for ${p} on ${d} at ${t} is booked. A confirmation is on its way to ${m}.`,
+    pendText: (d, t, p, m) => `We have your request for ${p} on ${d} at ${t} and will confirm it by email to ${m}.`,
+    persons: n => n === 1 ? "1 guest" : n + " guests", prev: "Previous month", next: "Next month" }
+};
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2, "0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const today = new Date(); today.setHours(0, 0, 0, 0);
+const maxDate = new Date(today); maxDate.setDate(maxDate.getDate() + CFG.bookAheadDays);
+let lang = (navigator.language || "de").startsWith("en") ? "en" : "de";
+let view = new Date(today.getFullYear(), today.getMonth(), 1), day = null, time = null, free = null, slotReq = 0;
+const t = k => T[lang][k];
+const loc = () => lang === "de" ? "de-DE" : "en-GB";
+const fmt = d => new Intl.DateTimeFormat(loc(), { weekday: "short", day: "numeric", month: "long" }).format(d);
+
+// Server-Aufruf, in der Vorschau ohne Google simuliert
+function call(fn, arg) {
+  if (!LIVE) return new Promise(r => setTimeout(() => r(fn === "apiSlots"
+    ? { ok: true, free: { "12:00": 20, "12:30": 2, "13:00": 20, "18:00": 20, "18:30": 0, "19:00": 12 } }
+    : { ok: true, status: "confirmed" }), 300));
+  return new Promise((res, rej) => google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](arg));
+}
+
+function renderStatic() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-t]").forEach(el => el.textContent = t(el.dataset.t));
+  document.querySelectorAll("[data-lang]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  $("#prev").setAttribute("aria-label", t("prev")); $("#next").setAttribute("aria-label", t("next"));
+  const v = $("#party").value || "2";
+  $("#party").innerHTML = Array.from({ length: CFG.maxParty }, (_, i) => `<option value="${i + 1}">${t("persons")(i + 1)}</option>`).join("");
+  $("#party").value = v;
+}
+
+function renderCal() {
+  const y = view.getFullYear(), m = view.getMonth();
+  $("#t-day").textContent = new Intl.DateTimeFormat(loc(), { month: "long", year: "numeric" }).format(view);
+  $("#prev").disabled = y === today.getFullYear() && m === today.getMonth();
+  $("#next").disabled = new Date(y, m + 1, 1) > maxDate;
+  const dow = [1, 2, 3, 4, 5, 6, 0].map(d => new Intl.DateTimeFormat(loc(), { weekday: "short" }).format(new Date(2024, 0, 7 + d)).replace(".", ""));
+  let html = dow.map(d => `<span class="dow" aria-hidden="true">${d}</span>`).join("");
+  html += "<span></span>".repeat((new Date(y, m, 1).getDay() + 6) % 7);
+  const full = new Intl.DateTimeFormat(loc(), { weekday: "long", day: "numeric", month: "long" });
+  for (let n = 1; n <= new Date(y, m + 1, 0).getDate(); n++) {
+    const d = new Date(y, m, n), ok = d >= today && d <= maxDate && CFG.hours[d.getDay()];
+    html += `<button type="button" class="day" data-d="${n}" aria-label="${full.format(d)}" aria-pressed="${!!day && d.getTime() === day.getTime()}" ${ok ? "" : "disabled"}>${n}</button>`;
+  }
+  $("#cal").innerHTML = html;
+}
+
+function renderSlots() {
+  const el = $("#slots");
+  if (!day) { el.innerHTML = `<p class="hint">${t("pickDay")}</p>`; return; }
+  if (!free) { el.innerHTML = `<p class="hint">${t("loading")}</p>`; return; }
+  const times = Object.keys(free);
+  if (!times.length) { el.innerHTML = `<p class="hint">${t("noSlots")}</p>`; return; }
+  const party = +$("#party").value;
+  if (time && free[time] < party) time = null;
+  el.innerHTML = times.map(x => `<button type="button" class="slot" data-t2="${x}" aria-pressed="${x === time}" ${free[x] < party ? "disabled" : ""}>${x}</button>`).join("");
+}
+
+async function loadSlots() {
+  free = null; renderSlots();
+  const req = ++slotReq;
+  try {
+    const out = await call("apiSlots", iso(day));
+    if (req === slotReq) { free = out.ok ? out.free : {}; renderSlots(); }
+  } catch (_) { if (req === slotReq) { free = {}; renderSlots(); } }
+}
+
+$("#cal").addEventListener("click", e => {
+  const b = e.target.closest(".day"); if (!b || b.disabled) return;
+  day = new Date(view.getFullYear(), view.getMonth(), +b.dataset.d); time = null;
+  renderCal(); loadSlots();
+});
+$("#slots").addEventListener("click", e => {
+  const b = e.target.closest(".slot"); if (!b || b.disabled) return;
+  time = b.dataset.t2; renderSlots();
+});
+$("#prev").addEventListener("click", () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); renderCal(); });
+$("#next").addEventListener("click", () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); renderCal(); });
+$("#party").addEventListener("change", renderSlots);
+document.querySelectorAll("[data-lang]").forEach(b => b.addEventListener("click", () => { lang = b.dataset.lang; renderStatic(); renderCal(); renderSlots(); }));
+
+$("#form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const err = $("#err"), name = $("#name-in").value.trim(), phone = $("#phone").value.trim(), email = $("#email").value.trim();
+  if (!day || !time) { err.textContent = t("errDate"); return; }
+  if (name.length < 2) { err.textContent = t("errName"); $("#name-in").focus(); return; }
+  if (phone.replace(/\D/g, "").length < 6 || !/^\S+@\S+\.\S+$/.test(email)) { err.textContent = t("errContact"); return; }
+  if (!$("#consent").checked) { err.textContent = t("errConsent"); $("#consent").focus(); return; }
+  err.textContent = "";
+  const btn = $("#submit"); btn.disabled = true; btn.textContent = t("sending");
+  const party = +$("#party").value;
+  try {
+    const out = await call("apiBook", { date: iso(day), time, party, name, phone, email, notes: $("#notes").value.trim(), language: lang, website: $("#website").value });
+    if (!out.ok) {
+      err.textContent = ["full", "slot_unavailable", "party_too_large"].includes(out.code) ? t("errFull") : t("errFail") + CFG.phone;
+      if (out.code === "full") { time = null; loadSlots(); }
+      return;
+    }
+    const pending = out.status === "pending";
+    $("#r-title").textContent = t(pending ? "pendTitle" : "okTitle");
+    $("#r-text").textContent = t(pending ? "pendText" : "okText")(fmt(day), time, t("persons")(party), email);
+    $("#form").hidden = true; $("#result").hidden = false; $("#result").focus();
+  } catch (_) {
+    err.textContent = t("errFail") + CFG.phone;
+  } finally {
+    btn.disabled = false; btn.textContent = t("submit");
+  }
+});
+
+$("#name").textContent = CFG.restaurant;
+$("#contact").textContent = [CFG.address, CFG.phone].filter(Boolean).join(" · ");
+document.documentElement.style.setProperty("--brand", CFG.color);
+$("#demo").hidden = !!LIVE;
+renderStatic(); renderCal(); renderSlots();
+</script>
